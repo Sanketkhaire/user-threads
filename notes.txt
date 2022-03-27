@@ -1,0 +1,127 @@
+Userland threads
+----
+Implement the same functions as provided by pthreads.
+create, join, kill 
+
+Different implementations: same function prototype, but different code.
+
+one-one/mythread.h one-one/mythread.c 
+	mythread_create(tid_t, funcptr_t f, arg_t a) 
+many-one/mythread.h many-one/mythread.c 
+	mythread_create(tid_t, funcptr_t f, arg_t a) 
+in both .c files you should have functions with SAME prototype! 
+
+If I write a program using your library, I should be able to link it with any implementation without changing my code!
+mycode.c
+#include "mythread.h" 
+int main() {
+	mythread_create(t, f, x);
+}
+cc -I one-one mycode.c 
+cc -I many-one  mycode.c 
+
+--
+Implemetation
+one-one
+
+struct thread {
+	int tid;
+	stack *stack;
+	funcptr f; 
+	kernel-thread id;
+}
+global array of threads, or a LL of threads; 
+mythread_create(int *tid, struct attr *attr, funcptr f, void *arg) {
+	allocate stack; // malloc, sbrk(), mmap
+	clone(.....,f, stack,....arg,....)
+	remember the thread, also add it to LL or array;	
+}
+mythread_join(int *tid) {
+	find the thread using tid in array/LL
+	wait;
+}
+
+--
+many-one 
+struct thread {
+	int tid;
+	stack *stack;
+	funcptr f; 
+	kernel-thread id;
+}
+global array of threads, or a LL of threads; 
+scheduler queue (queue of threads);
+mythread_create(int *tid, struct attr *attr, funcptr f, void *arg) {
+	set SIGALRM handler to f()
+	create one thread additional for may be the scheduler! 
+	allocate stack; // malloc, sbrk(), mmap
+	remember the thread, also add it to LL or array;	
+	also add the thread to list of threads to be scheduled
+	scheduler();
+}
+sigalrm-handler f() {
+	....
+	scheduler();
+}
+scheduler() {
+	selects a thread for execution from the array or LL of ready-threads
+	save the context of the current thread;
+	load the context of chosen thread
+	set ALARM;  
+	"run" the new chosen thread;
+	// use the makecontext, getcontext, setcontext()
+	// before anything, try these functions first! 
+}
+
+many-many
+----
+struct thread {
+	int tid;
+	stack *stack;
+	funcptr f; 
+	kernel-thread id;
+	context c;
+}
+global array of threads, or a LL of threads; 
+scheduler queue (queue of threads);
+struct kernel-thread {
+	tid;
+	func; 
+}
+an array or LL of kernel threads;
+
+default number of kernel_threads = 3; 
+mythread_setkthreads(int n) {
+	kernel_threads = n; 
+}
+mythread_create(int *tid, struct attr *attr, funcptr f, void *arg) {
+	set SIGALRM handler to f()
+	if current number of threads < limit kernel_threads
+		clone(..f..); 
+	allocate stack; // malloc, sbrk(), mmap
+	remember the thread, also add it to LL or array;	
+	also add the thread to list of threads to be scheduled
+	scheduler();
+}
+sigalrm-handler f() {
+	....
+	scheduler();
+}
+scheduler() {
+	selects a thread for execution from the array or LL of ready-threads
+	save the context of the current thread;
+	load the context of chosen thread
+	set ALARM;  
+	"run" the new chosen thread on a selected kernel-thread;
+	// use the makecontext, getcontext, setcontext()
+	// before anything, try these functions first! 
+	remember which threads are scheduled where and don't do duplicate scheudling; 
+}
+
+myprogram.c
+mythread_create(....f,... ) // added to the queue; 
+mythread_create(....g, ..)	// clone()
+mythread_create(....h, ..) // does not call a clone 
+
+
+
