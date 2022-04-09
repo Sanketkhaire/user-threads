@@ -10,32 +10,33 @@ typedef struct funcDesc{
     int status; 
 }funcDesc;
 
-typedef struct thread{
+typedef struct thDesc{
     mythread_t tid;
+    pid_t pid;
+    pid_t ppid;
     mythread_t kid;
-}mythread;
+}thDesc;
 
 //linked list node data structure for storing threads created.
 typedef struct node{
-    mythread *th;
+    thDesc *th;
     funcDesc *fD;
     struct node *next;
 }node;
 
 
 //actual linked list structure enclosing head and tail pointer.
-struct linked_list{
+typedef struct linked_list{
     node *start;
     node *end;
     int count;
-};
+}th_linked_list;
 
-typedef struct linked_list thread_ll;
 
-void add_thread_to_ll(thread_ll *list, mythread *t, funcDesc *f);
+void add_thread_to_ll(thDesc *t, funcDesc *f);
 static int wrapper(void *arg);
-int thread_create(mythread *t,void *attr, void *func_ptr, void *args);
-int thread_join(mythread *t, void **retval);
+int thread_create(mythread_t *t,void *attr, void *func_ptr, void *args);
+int thread_join(mythread_t *t, void **retval);
 void thread_exit(void *retval);
-int thread_kill(mythread *T, int sig);
+int thread_kill(mythread_t *T, int sig);
 

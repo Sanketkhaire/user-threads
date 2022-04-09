@@ -1,0 +1,31 @@
+Userland project: Implement a multithreading library
+
+Implement a user level multithreading library. Since it's Linux systems, the library should come with options to do one-one,  many-one or many-many scheudling (All three of the three) of user threads on kernel threads. It should support following functions:
+thread_create() ; // provide option to use a desired mapping.
+thread_join()
+thread_exit()
+thread_lock(); // a spinlock
+thread_unlock();  // spin-unlock
+
+thread_mutex_lock(); // a mutex sleep-lock
+
+thread_mutex_unlock();
+thread_kill();// handle SIGs  - TERM, STOP, CONT, KILL, TERM,
+SIGTERM:kill process 
+SIGSTOP:stop all threads in a process
+SIGCONT:ignore || resumes stopped threads
+SIGKILL:kill process
+SIG_IGN:
+SIG_DFL:
+
+Note: you need to use the SIGALRM signals to do scheduling. Learn setjmp and longjmp in C library, you may also use the ucontext library.
+
+Your testing should cover all possible ways of creating threads, race conditions.
+
+Each of the two library implementations: 13 marks each. ,
+
+Automated Testing code: 10 marks
+
+synchronization: 8 marks
+
+signal handling: 6 marks
