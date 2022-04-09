@@ -23,14 +23,12 @@ static int wrapper(void *arg){
 
 void add_thread_to_ll(thread_ll *list,mythread *t, funcDesc *f){
     node * newNode = (node *)malloc(sizeof(struct node));
-    
     newNode->th = t;
     newNode->fD = f;
     newNode->next = NULL;
     newNode->th->tid = list->count;
     (list->count)++;
     if(list->start== NULL){
-        printf("done");
         list->start = newNode;
         list->end = newNode;
         return;
