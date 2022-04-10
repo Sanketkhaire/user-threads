@@ -7,17 +7,21 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
 #include "mythread.h"
 
 th_linked_list thread_chain;
 
-int wrapper(void *arg){
-    printf("yes");
+static int wrapper(void *arg){
+    int *s = (int*)malloc(sizeof(int));
     funcDesc *f =(funcDesc *)arg;
+    
 	f->fPtr(f->args);
-	printf("|Function excuted completely|\n");
+	//printf("|Function excuted completely|\n");
     f->status = 1;
+    thread_exit((void*)s);
+    printf("iiiiiiiiiiii\n");
 	return 0;
 }
 
@@ -31,7 +35,7 @@ void traverse(){
 
 
 void add_thread_to_ll(thDesc *t, funcDesc *f){
-    node *newNode = (node *)malloc(sizeof(struct node));
+    node *newNode = (node *)malloc(sizeof(node));
     newNode->th = t;
     newNode->fD = f;
     newNode->next = NULL;
@@ -48,31 +52,33 @@ void add_thread_to_ll(thDesc *t, funcDesc *f){
     return;
 }
 
-int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *argv){
+int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
     
     void *new_stack = mmap(NULL,GUARDPSIZE + DEFAULT_STACKSIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK,-1,0);
     
     if(new_stack == MAP_FAILED)
 	    printf("|mmap failed!|\n");
-    thDesc *t = (thDesc*)malloc(sizeof(thDesc));
+    thDesc *t = (thDesc *)malloc(sizeof(thDesc));
     funcDesc *f = (funcDesc *)malloc(sizeof(funcDesc));
     f->fPtr = func_ptr;
-    f->args = argv;
+    f->args = arg;
     f->stack = new_stack;
     f->status = 0;
 
     t->pid = getpid();
     t->ppid = getppid();
+    add_thread_to_ll(t, f);
     int id = clone(wrapper, new_stack+GUARDPSIZE+DEFAULT_STACKSIZE,CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, (void*)f);
-	
+	printf("ok %d %d\n",t->pid,t->ppid);
     if(id == -1){
         printf("|Clone Failed!|\n");
         //adding error flag here 
         exit(1);
     }
+    
     t->kid = id;
     *tt = t->kid;
-    add_thread_to_ll(t, f);
+    
     return 0;
 }
 
@@ -81,7 +87,7 @@ int thread_join(mythread_t *t, void **retval){
     //exit(1);    
     node *temp = thread_chain.start;
     while(temp){
-        printf("\nkid : %ld\n",temp->th->kid);
+        //printf("\nkid : %ld %ld\n",temp->th->kid, *t);
         if(temp->th->kid == *t){
             printf("\nkids : %ld\n",temp->th->kid);
             break;
@@ -95,7 +101,7 @@ int thread_join(mythread_t *t, void **retval){
         //exit(1);
         while(temp->fD->status == 0)
             ;
-        exit(1);
+        //exit(1);
         return 0;
     }
     else{
@@ -105,7 +111,14 @@ int thread_join(mythread_t *t, void **retval){
 
 }
 
-void thread_exit(void *retval){}
+void thread_exit(void *retval){
+    mythread_t tid = gettid();
+    int *a = (int*)retval;
+    *a = 1;
+    sleep(1);
+    kill(SIGINT,tid);
+    return;
+}
 
 int thread_kill(mythread_t *t, int sig){
     node *n = thread_chain.start;
@@ -164,14 +177,10 @@ int main(){
     int *ret = (int *)malloc(sizeof(int));
     void** re;
     mythread_t t,k;
-    struct c sanket;
-    sanket.a = 4;
-    sanket.b = 7;
-    sanket.result = 0;
     thread_create(&t,NULL, f,NULL);
     //thread_create(&k,NULL, f,NULL);
     printf("jjjjj");
-    thread_join(&t,re);
+    //thread_join(&t,re);
     /*sleep(2);
     thread_kill(&t,SIGSTOP);
     printf("No");
@@ -179,6 +188,7 @@ int main(){
     sleep(4);
     printf("\n%d is ",sanket.result);*/
     //thread_kill(&t, SIGKILL);
-    sleep(4);
+    sleep(10);
+
     return 0;
 }
