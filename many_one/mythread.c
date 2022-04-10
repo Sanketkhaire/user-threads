@@ -22,7 +22,7 @@ sigset_t __signalList;
 
 static int wrapper(){
     int *s = (int*)malloc(sizeof(int));
-
+    //printf("In Wrapper!");
     node *curr = thread_chain.start->next;
     while(curr){
         if(curr->fD->status == RUNNING){
@@ -32,10 +32,8 @@ static int wrapper(){
         curr = curr->next;
     }
     funcDesc *f =(funcDesc *)curr->fD;
-
-	f->fPtr(f->args);
-    f->status = TERMINATED;
-    //thread_exit((void*)s);
+    f->fPtr(f->args);
+    thread_exit((void*)s);
     longjmp(thread_chain.start->th->myContext,1);
 	return 0;
 }
@@ -48,6 +46,7 @@ void traverse(){
     }
 }
 
+//Ref:https://www.ibm.com/docs/en/i/7.3?topic=ssw_ibm_i_73/apis/sigpmsk.htm
 static void setSignals()
 {
     
@@ -135,6 +134,7 @@ void scheduler(){
     }
 }
 
+/*Ref:https://stackoverflow.com/questions/69148708/alternative-to-mangling-jmp-buf-in-c-for-a-context-switch*/
 unsigned long int mangle(unsigned long int p) {
     unsigned long int ret;
     asm(" mov %1, %%rax;\n"
@@ -151,7 +151,7 @@ unsigned long int mangle(unsigned long int p) {
 
 void init(){
     static int flag = 0;
-    if(!flag){
+    ifI(!flag){
         printf("init\n");
         flag = 1;
         mythread_t t1,t2;
@@ -177,6 +177,7 @@ int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
     f->stack = new_stack;
     f->status = RUNNABLE;
     printf("hey\n");
+    //Ref: Coroutines.pdf already pushed.
     t->myContext->__jmpbuf[6] = mangle((long int)(new_stack+GUARDPSIZE+DEFAULT_STACKSIZE));
     t->myContext->__jmpbuf[7] = mangle((long int)wrapper);
 
@@ -190,26 +191,19 @@ int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
     return 0;
 }
 
-int thread_join(mythread_t *t, void **retval){
-    // traverse();
-    //exit(1);    
-    node *temp = thread_chain.start;
+int thread_join(mythread_t *t, void **retval){  
+    node *temp = thread_chain.start->next;
     while(temp){
-        //printf("\nkid : %ld %ld\n",temp->th->kid, *t);
-        if(temp->th->kid == *t){
-            printf("\nkids : %ld\n",temp->th->kid);
+        if(temp->th->tid == *t){
+            printf("\nkids : %ld\n",temp->th->tid);
             break;
         }
         temp = temp->next;
     }
-    
     if(temp){
-        printf("kkk");
         printf("\nstatus : %d\n",temp->fD->status);
-        //exit(1);
-        while(temp->fD->status == 0)
+        while(temp->fD->status != TERMINATED)
             ;
-        //exit(1);
         return 0;
     }
     else{
@@ -220,23 +214,24 @@ int thread_join(mythread_t *t, void **retval){
 }
 
 void thread_exit(void *retval){
-    mythread_t tid = gettid();
-    int *a = (int*)retval;
-    *a = 1;
-    sleep(1);
-    kill(SIGINT,tid);
+    node *temp = thread_chain.start->next;
+    while(temp){
+        if(temp->fD->status = RUNNING){
+            temp->fD->status = TERMINATED;
+            break;
+        }
+        temp=temp->next;
+    }
+   
     return;
 }
 
-
+/*
 int thread_kill(mythread_t *t, int sig){
-    node *n = thread_chain.start;
-    pid_t pid=0;
+    node *n = thread_chain.start->next;
+    pid_t pid=getpid();
     while(n){
-        if(n->th->kid == *t){
-            pid = n->th->pid;
-            break;
-        }
+        if(n->th->
         n=n->next;
     }
     if(sig == SIGKILL || sig == SIGTERM){
@@ -258,15 +253,15 @@ int thread_kill(mythread_t *t, int sig){
     }
 
 }
-
+*/
 struct c{
     int a,b,result;
 };
 void f(){
-    printf("5 secs completed in f!\n");
-    //printf("hello");
-    sleep(2);
-    printf("af\n");
+    while(1){
+        printf("Hello in f:");
+        sleep(2);
+    }
     //printf("%d is :",cd->result);
     return;
 }
@@ -287,7 +282,7 @@ int main(){
     thread_create(&t,NULL, f,NULL);
     thread_create(&k,NULL, g,NULL);
     printf("jjjjjppp");
-    //thread_join(&t,re);
+    thread_join(&t,re);
     /*sleep(2);
     thread_kill(&t,SIGSTOP);
     printf("No");

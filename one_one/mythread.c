@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <syscall.h>
 #include <sys/wait.h>
 #include "mythread.h"
 
@@ -21,7 +22,7 @@ static int wrapper(void *arg){
 	//printf("|Function excuted completely|\n");
     f->status = 1;
     thread_exit((void*)s);
-    printf("iiiiiiiiiiii\n");
+    printf("Thread exited!");
 	return 0;
 }
 
@@ -44,7 +45,7 @@ void add_thread_to_ll(thDesc *t, funcDesc *f){
     if(thread_chain.start== NULL){
         thread_chain.start = newNode;
         thread_chain.end = newNode;
-        printf("printed %ld\n",thread_chain.start->th->kid);
+        //printf("printed %ld\n",thread_chain.start->th->kid);
     }
     else{
         thread_chain.end->next = newNode;
@@ -69,7 +70,6 @@ int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
     t->ppid = getppid();
     add_thread_to_ll(t, f);
     int id = clone(wrapper, new_stack+GUARDPSIZE+DEFAULT_STACKSIZE,CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, (void*)f);
-	printf("ok %d %d\n",t->pid,t->ppid);
     if(id == -1){
         printf("|Clone Failed!|\n");
         //adding error flag here 
@@ -82,21 +82,18 @@ int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
     return 0;
 }
 
-int thread_join(mythread_t *t, void **retval){
-    // traverse();
-    //exit(1);    
+int thread_join(mythread_t *t, void **retval){  
     node *temp = thread_chain.start;
     while(temp){
         //printf("\nkid : %ld %ld\n",temp->th->kid, *t);
         if(temp->th->kid == *t){
-            printf("\nkids : %ld\n",temp->th->kid);
+            printf("\nkid : %ld\n",temp->th->kid);
             break;
         }
         temp = temp->next;
     }
     
     if(temp){
-        printf("kkk");
         printf("\nstatus : %d\n",temp->fD->status);
         //exit(1);
         while(temp->fD->status == 0)
@@ -116,7 +113,10 @@ void thread_exit(void *retval){
     int *a = (int*)retval;
     *a = 1;
     sleep(1);
-    kill(SIGINT,tid);
+    printf("In  exit");
+    //kill(SIGINT,tid);
+    syscall(SYS_exit,EXIT_SUCCESS);
+    printf("\nAfter exit");
     return;
 }
 

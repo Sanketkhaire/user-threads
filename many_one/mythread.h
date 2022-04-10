@@ -17,6 +17,7 @@ typedef struct thDesc{
     pid_t ppid;
     mythread_t kid;
     jmp_buf myContext;
+    jmp_buf exitPoint;
 }thDesc;
 
 //linked list node data structure for storing threads created.
