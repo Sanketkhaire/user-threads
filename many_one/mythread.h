@@ -16,6 +16,8 @@ typedef struct thDesc{
     pid_t pid;
     pid_t ppid;
     mythread_t kid;
+    int signalArr[50];
+    int sigIndex = 0;
     jmp_buf myContext;
     jmp_buf exitPoint;
 }thDesc;

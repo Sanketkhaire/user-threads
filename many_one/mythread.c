@@ -16,7 +16,7 @@
 
 th_linked_list thread_chain;
 
-enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO};
+enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO,WAITING};
 
 sigset_t __signalList;
 
@@ -226,34 +226,74 @@ void thread_exit(void *retval){
     return;
 }
 
-/*
+
 int thread_kill(mythread_t *t, int sig){
-    node *n = thread_chain.start->next;
-    pid_t pid=getpid();
-    while(n){
-        if(n->th->
-        n=n->next;
-    }
-    if(sig == SIGKILL || sig == SIGTERM){
-        int m= tgkill(pid,*t,sig);
-        if(m==-1)
-            printf("Not killed!");
-    }
-    else if(sig == SIGSTOP){
-        int m= tgkill(pid,*t,sig);
-        if(m==-1)
-            printf("Not Stopped!");
-
-    }
-    else if(sig == SIGCONT){
-         int m= tgkill(pid,*t,sig);
-        if(m==-1)
-            printf("Not Continued!");
-
+    node *temp = thread_chain.start->next;
+    while(temp){
+        if(temp->th->tid == *t){
+            break;
+        }
+        temp=temp->next;
     }
 
-}
-*/
+    if(temp){
+        if(temp->fD->status == RUNNING){
+            if(sig == SIGKILL || sig == SIGTERM){
+                int m = tgkill(pid,*t,sig);
+                if(m == -1)
+                    printf("Not killed!");
+            }
+
+            else if(sig == SIGSTOP){
+                temp->fD->status = WAITING;
+
+            }
+            // else if(sig == SIGCONT){
+            //     temp->fD->status = RUNNABLE;
+            // }
+        }
+
+        else if(temp->fD->status != TERMINATED){
+            if(sig == SIGKILL || sig == SIGTERM){
+                int m = tgkill(pid,*t,sig);
+                if(m == -1)
+                    printf("Not killed!");
+            }
+
+            else if(sig == SIGCONT || sig == SIGSTOP){
+                temp->th->signalArr[sigIndex++] = sig;
+            }
+        }
+    }
+
+
+
+//     node *n = thread_chain.start->next;
+//     pid_t pid=getpid();
+//     while(n){
+//         if(n->th->
+//         n=n->next;
+//     }
+//     if(sig == SIGKILL || sig == SIGTERM){
+//         int m= tgkill(pid,*t,sig);
+//         if(m==-1)
+//             printf("Not killed!");
+//     }
+//     else if(sig == SIGSTOP){
+//         int m= tgkill(pid,*t,sig);
+//         if(m==-1)
+//             printf("Not Stopped!");
+
+//     }
+//     else if(sig == SIGCONT){
+//          int m= tgkill(pid,*t,sig);
+//         if(m==-1)
+//             printf("Not Continued!");
+
+//     }
+
+// }
+
 struct c{
     int a,b,result;
 };
