@@ -17,7 +17,7 @@ typedef struct thDesc{
     pid_t ppid;
     mythread_t kid;
     int signalArr[50];
-    int sigIndex = 0;
+    int sigIndex;
     jmp_buf myContext;
     jmp_buf exitPoint;
 }thDesc;
@@ -43,5 +43,5 @@ static int wrapper();
 int thread_create(mythread_t *t,void *attr, void *func_ptr, void *args);
 int thread_join(mythread_t *t, void **retval);
 void thread_exit(void *retval);
-int thread_kill(mythread_t *T, int sig);
+int thread_kill(mythread_t *t, int sig);
 

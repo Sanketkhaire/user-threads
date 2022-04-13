@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.ejs": "html",
+        "mman.h": "c",
+        "sched.h": "c",
+        "setjmp.h": "c"
+    }
+}
