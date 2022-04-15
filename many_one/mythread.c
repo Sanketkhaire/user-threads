@@ -12,25 +12,29 @@
 #include <limits.h>
 #include <setjmp.h>
 #include "mythread.h"
+#include "lock.h"
 
 
 th_linked_list thread_chain;
 
+node* running_thread;
+
 enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO,WAITING};
 
-sigset_t __signalList;
 
 static int wrapper(){
     int *s = (int*)malloc(sizeof(int));
     //printf("In Wrapper!");
-    node *curr = thread_chain.start->next;
-    while(curr){
-        if(curr->fD->status == RUNNING){
-            break;
-        }
+    node *curr = running_thread;
+    // while(curr){
+    //     if(curr->fD->status == RUNNING){
+    //         break;
+    //     }
             
-        curr = curr->next;
-    }
+    //     curr = curr->next;
+    // }
+
+    
     funcDesc *f =(funcDesc *)curr->fD;
     f->fPtr(f->args);
     thread_exit((void*)s);
@@ -47,14 +51,8 @@ void traverse(){
 }
 
 //Ref:https://www.ibm.com/docs/en/i/7.3?topic=ssw_ibm_i_73/apis/sigpmsk.htm
-static void setSignals()
-{
-    
-    sigfillset(&__signalList);
-    sigaddset(&__signalList, SIGALRM);
-    sigprocmask(SIG_UNBLOCK, &__signalList, NULL);
-    return;
-}
+
+
 
 void add_thread_to_ll(thDesc *t, funcDesc *f){
     node *newNode = (node *)malloc(sizeof(node));
@@ -92,16 +90,16 @@ void sig_handler(){
     
     printf("in handler\n");
     
-    node *curr = thread_chain.start->next;
-    while(curr){
-        if(curr->fD->status == RUNNING){
-            printf("in handler %ld\n",curr->th->tid);
-            curr->fD->status = RUNNABLE;
-            break;
-        }
-        curr = curr->next;
-        if(!curr) curr = thread_chain.start->next;
-    }
+    node *curr = running_thread;
+    // while(curr){
+    //     if(curr->fD->status == RUNNING){
+    //         printf("in handler %ld\n",curr->th->tid);
+    //         curr->fD->status = RUNNABLE;
+    //         break;
+    //     }
+    //     curr = curr->next;
+    //     if(!curr) curr = thread_chain.start->next;
+    // }
     printf("\ninnnnnnnnnn\n");
     if(setjmp(curr->th->myContext) == 0)
         longjmp(thread_chain.start->th->myContext,1);
@@ -110,12 +108,10 @@ void sig_handler(){
 
 void my_signal_handler(node *curr){
     int temp = 0;
+    int ret;
     printf("in mysig\n");
     while(temp < curr->th->sigIndex){
-        if(curr->th->signalArr[temp] == SIGCONT)
-            curr->fD->status = RUNNABLE;
-        else if(curr->th->signalArr[temp] == SIGSTOP)
-            curr->fD->status = WAITING;
+        tgkill(curr->th->kid,curr->th->pid,curr->th->signalArr[temp]);
         printf("in array %d\n",curr->th->sigIndex);
         temp++;
     }
@@ -127,7 +123,7 @@ void scheduler(){
     //setSignals();
     node *current = thread_chain.start->next->next, *temp = NULL;
     if((setjmp(thread_chain.start->th->myContext)) == 0){
-        setSignals();
+        unblockSignal();
         ualarm(100,0);
         thread_chain.start->next->fD->status = RUNNING;
         longjmp(thread_chain.start->next->th->myContext,3);
@@ -139,14 +135,17 @@ void scheduler(){
         // printf("thread no issssss:%ld\n",temp->th->tid);
         if(!current) current = thread_chain.start->next;
         // traverse();
-        my_signal_handler(temp);
+        
         if(temp->fD->status == RUNNABLE){
+            my_signal_handler(temp);
             printf("thread no :%ld\n",temp->th->tid);
             temp->fD->status = RUNNING;
-            setSignals();
+            running_thread = temp;
+            unblockSignal();
             ualarm(100,0);
-            
-            longjmp(temp->th->myContext,3);
+            if(setjmp(thread_chain.start->th->myContext) == 0)
+                longjmp(temp->th->myContext,3);
+            temp->fD->status = RUNNABLE;
         }
 
     }
@@ -236,14 +235,16 @@ int thread_join(mythread_t *t, void **retval){
 
 void thread_exit(void *retval){
     node *temp = thread_chain.start->next;
-    while(temp){
-        if(temp->fD->status == RUNNING){
-            printf("\nexiteddd : %ld\n",temp->th->tid);
-            temp->fD->status = TERMINATED;
-            break;
-        }
-        temp=temp->next;
-    }
+    // while(temp){
+    //     if(temp->fD->status == RUNNING){
+    //         printf("\nexiteddd : %ld\n",temp->th->tid);
+    //         temp->fD->status = TERMINATED;
+    //         break;
+    //     }
+    //     temp=temp->next;
+    // }
+
+    temp->fD->status = TERMINATED;
    
     return;
 }
@@ -261,35 +262,30 @@ int thread_kill(mythread_t *t, int sig){
     }
     printf("in kelll\n");
     if(temp){
-        // if(temp->fD->status == RUNNING){
-        //     if(sig == SIGKILL || sig == SIGTERM){
-        //         int m = tgkill(temp->th->pid,*t,sig);
-        //         if(m == -1)
-        //             printf("Not killed!");
-        //     }
-        //     else if(sig == SIGSTOP){
-        //         temp->fD->status = WAITING;
-        //         if(setjmp(temp->th->myContext) == 0)
-        //             longjmp(thread_chain.start->th->myContext,3);
-                
-        //     }
-        //     // else if(sig == SIGCONT){
-        //     //     temp->fD->status = RUNNABLE;
-        //     // }
-        // }
 
-        if(temp->fD->status != TERMINATED){
-            
-            if(sig == SIGKILL || sig == SIGTERM){
-                int m = tgkill(temp->th->pid,*t,sig);
+        printf("signaled\n");
+        if(temp->fD->status != TERMINATED){    
+            if(sig == SIGKILL || sig == SIGCONT || sig == SIGSTOP || sig == SIGINT){
+                int m = tgkill(temp->th->pid,temp->th->kid,sig);
                 if(m == -1)
                     printf("Not killed!");
             }
-            else if(sig == SIGCONT || sig == SIGSTOP){
+            else if(sig == SIGTERM){
+                temp->fD->status = TERMINATED;
+            }
+            else{
                 temp->th->signalArr[temp->th->sigIndex++] = sig;
             }
         }
     }
+}
+
+void thread_lock(struct spinlock *t){
+    acquire(t);
+}
+
+void thread_unlock(struct spinlock *t){
+    release(t);
 }
 
 
@@ -327,12 +323,13 @@ int main(){
     printf("jjjjjppp");
     //thread_join(&t,re);
     sleep(2);
-    thread_kill(&t,SIGSTOP);
-    printf("hey");
+
+    thread_kill(&t,SIGTERM);
+    // printf("hey");
     
-    sleep(10);
-    // exit(1);
-    thread_kill(&t,SIGCONT);    
+    // sleep(10);
+    // // exit(1);
+    // thread_kill(&t,SIGCONT);    
     /*sleep(2);
     thread_kill(&t,SIGSTOP);
     printf("No");
@@ -342,11 +339,12 @@ int main(){
     //thread_kill(&t, SIGKILL);
     printf("i am out\n");
     sleep(5);
-    while(1){
-        printf("Hello in main:");
-        sleep(1);
-    }
-    sleep(5);
+    // while(1){
+    //     printf("Hello in main:");
+    //     sleep(1);
+    // }
+    sleep(10);
+    printf("ouuuuut\n");
     // while(1){
     // printf("i poiu\n");
     // sleep(10);
