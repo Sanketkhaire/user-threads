@@ -1,3 +1,4 @@
+#include <time.h>
 #define GUARDPSIZE (getpagesize())
 #define DEFAULT_STACKSIZE (4*getpagesize())
 
@@ -17,7 +18,7 @@ typedef struct thDesc{
     pid_t ppid;
     mythread_t kid;
     int signalArr[50];
-    int sigIndex = 0;
+    int sigIndex;
     jmp_buf myContext;
     jmp_buf exitPoint;
 }thDesc;
@@ -43,11 +44,15 @@ typedef struct kthread{
     void *stack;
     struct kthread *next;
     jmp_buf scheduler_context; 
+    timer_t ttid;
+    struct itimerspec tInfo;
+    struct sigevent event;
 }kthread;
 
 typedef struct klinked_list{
     kthread *start;
     kthread *end;
+    kthread *current;//this to be scheduled each time 
     int max_kernel_threads;
 }kth_linked_list;
 
