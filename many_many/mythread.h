@@ -34,7 +34,6 @@ typedef struct node{
 //actual linked list structure enclosing head and tail pointer.
 typedef struct linked_list{
     node *start;
-    node *end;
     int count;
 }th_linked_list;
 
@@ -44,14 +43,10 @@ typedef struct kthread{
     void *stack;
     struct kthread *next;
     jmp_buf scheduler_context; 
-    timer_t ttid;
-    struct itimerspec tInfo;
-    struct sigevent event;
 }kthread;
 
 typedef struct klinked_list{
     kthread *start;
-    kthread *end;
     kthread *current;//this to be scheduled each time 
     int max_kernel_threads;
 }kth_linked_list;

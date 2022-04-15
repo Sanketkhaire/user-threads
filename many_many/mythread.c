@@ -16,7 +16,9 @@
 
 
 th_linked_list thread_chain;
-kth_linked_list kthread_chain={NULL,NULL,NULL,3};
+kth_linked_list kthread_chain={NULL,NULL,3};
+jmp_buf scheduler_context_global; 
+
 
 enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO,WAITING};
 
@@ -30,30 +32,38 @@ static int wrapper(){
     int ktid = gettid();
     while(curr){
         if(curr->fD->status == RUNNING && curr->th->kid == ktid){
+            printf("\n  found  \n");
             break;
         }   
         curr = curr->next;
     }
     printf("In wrapper by gettid:%d\n",ktid);
     if(curr!=NULL){
+        printf("\n  scheduled  \n");
         funcDesc *f =(funcDesc *)curr->fD;
-        printf(""dskjfj)
         f->fPtr(f->args);
         curr->fD->status = TERMINATED;
     }
-    printf("HH");
+    // else
+    //     printf("HH");
     //thread_exit((void*)s);
-    
+    // while(1){
+    //     sleep(1);
+    // }
    
+    printf("scheduled down\n");
     kthread *start = kthread_chain.start;
+    // exit(1);
     while(start){
         if(start->kid == ktid)
             break;
         else
             start=start->next;
     }
-    if(!start){ printf("lkkhgffds");
-    return 0;}
+    // if(!start){ 
+    //     printf("lkkhgffds");
+    //     return 0;
+    // }
     longjmp(start->scheduler_context,1);
 	return 0;
 }
@@ -70,8 +80,9 @@ void traverse(){
 static void setSignals()
 {
     
-    sigfillset(&__signalList);
+    sigemptyset(&__signalList);
     sigaddset(&__signalList, SIGALRM);
+    sigaddset(&__signalList, SIGUSR1);
     sigprocmask(SIG_UNBLOCK, &__signalList, NULL);
     return;
 }
@@ -83,57 +94,63 @@ void add_thread_to_ll(thDesc *t, funcDesc *f){
     newNode->next = NULL;
     newNode->th->tid = thread_chain.count;
     (thread_chain.count)++;
-    if(thread_chain.start== NULL){
-        thread_chain.start = newNode;
-        thread_chain.end = newNode;
-        //printf("printed %ld\n",thread_chain.start->th->kid);
-    }
-    else{
-        //printf("last\n");
-        thread_chain.end->next = newNode;
-    }
+    newNode->next = thread_chain.start;
+    thread_chain.start=newNode;
     return;
 }
 
 void add_kthread_to_ll(kthread *k){
     if(kthread_chain.start== NULL){
         kthread_chain.start = k;
-        kthread_chain.end = k;
     }
     else{
         //printf("last\n");
-        kthread_chain.end->next = k;
+        k->next=kthread_chain.start;
+        kthread_chain.start=k;
     }
     return;
 }
 void sig_handler2(){
+    ualarm(0,0);
     int ktid = gettid();
     printf("Now control transferred to thread with tid:%ld and cactual ktid:%d\n",kthread_chain.current->kid,ktid);
     node *start = thread_chain.start;
+    
     while(start){
+        printf("dowiopppp\n");
         if(start->fD->status == RUNNING && start->th->kid==ktid){
+            printf("down\n");
             start->fD->status=RUNNABLE;
             break;
         }
         start=start->next;
     }
+    printf("corr\n");
     if(start!=NULL){
+        printf("gfg");
+                // exit(1);
         if(setjmp(start->th->myContext)==0)
             longjmp(kthread_chain.current->scheduler_context,1);
     }
     else{
+        
+        printf("else\n");
+        // exit(1);
         longjmp(kthread_chain.current->scheduler_context,1);
+        //longjmp(scheduler_context_global,2);
     }
+    printf("uyttr");
 }
 
 void sig_handler(){
+    ualarm(0,0);
     printf("In sig handler:%d\n",gettid());
     if(kthread_chain.current==NULL){
         kthread *first_thread = kthread_chain.start;
         kthread_chain.current = first_thread;
-        tgkill(getpid(),kthread_chain.current->kid,SIGUSR1);
+        int k = tgkill(getpid(),kthread_chain.current->kid,SIGUSR1);
+        printf("%d is k",k);
     }
-        //jump to first shcedulers context;
     else{
         if(kthread_chain.current->next==NULL){
             kthread_chain.current=kthread_chain.start;
@@ -147,32 +164,12 @@ void sig_handler(){
         }
     }
     return;
-    /*
-    printf("\nIn SIG handler:%d\n by tid",gettid());
-    node *curr = thread_chain.start;
-    while(curr){
-        if(curr->fD->status == RUNNING){
-            break;
-        }
-        curr = curr->next;
-        if(!curr) curr = thread_chain.start;
-    }
-    int ktid = gettid();
-    kthread *start = kthread_chain.start;
-    while(start){
-        if(start->kid == ktid)
-            break;
-        else
-            start=start->next;
-    }
-    if(setjmp(curr->th->myContext) == 0)
-        longjmp(start->scheduler_context,1);
-    */
 }
 
 int scheduler(void *arg){
     //setSignals();
-    printf("scheduler started for one of kernel threads with tid:%d\n",gettid());
+    setSignals();
+    printf("scheduler started for one of kernel threads with kid:%d\n",gettid());
     //signal(SIGALRM,signal_handler);
     /*Ref:https://stackoverflow.com/questions/16826898/error-struct-sigevent-has-no-member-named-sigev-notify-thread-id*/
     /*https://linux.kernel.narkive.com/nVHaTOMT/setitimer-vs-threads-sigalrm-returned-to-which-thread-process-master-or-individual-child*/
@@ -184,46 +181,25 @@ int scheduler(void *arg){
         else
             start=start->next;
     }
-    /*
-    start->tInfo.it_interval.tv_nsec = 0;
-    start->tInfo.it_interval.tv_sec = 0;
-
-  
-    start->tInfo.it_value.tv_nsec = ((100u)*1000000)%(1000000000);
-    start->tInfo.it_value.tv_sec = (100u)/1000;
-
-    start->event.sigev_notify = SIGEV_THREAD_ID;
-    start->event.sigev_signo = SIGALRM;
-    start->event._sigev_un._tid = ktid;
-    start->event.sigev_value.sival_ptr = NULL;
-    struct sigaction onAlarm;
-    onAlarm.sa_handler = sig_handler;
-    onAlarm.sa_flags = 0;
-    // sigfillset(&onAlarm.sa_mask);
-    sigaction(SIGALRM,&onAlarm, NULL);
-
-*/
     node *current = thread_chain.start;
     while(current){
         node *temp = current;
         current = current->next;
         if(!current) current = thread_chain.start;
-        traverse();
+        //traverse();
+        //printf("dsjkfh");
         if(temp->fD->status == RUNNABLE){
-            printf("Runnable thread Found!on scheduler running on tid:%d",gettid());
+            printf("Runnable thread Found!on scheduler running on kid:%d",gettid());
             temp->th->kid = ktid;
             start->tid = temp->th->tid;
             temp->fD->status = RUNNING;
             printf("setting ualarm(100,0)\n");
-            setSignals();
             ualarm(100,0);
-            //syscall(SYS_timer_create, CLOCK_REALTIME, &start->event, &start->ttid);
-            //syscall(SYS_timer_settime, start->ttid, 0, &start->tInfo, NULL);
-            if(setjmp(start->scheduler_context)==0);
+            if(setjmp(start->scheduler_context)==0)
                 longjmp(temp->th->myContext,1);
             printf("came here after long jmp to scheduler\n");
-            //syscall(SYS_timer_delete, start->ttid);
-            //temp->fD->status = RUNNABLE;
+            if(temp->fD->status != TERMINATED)
+                temp->fD->status = RUNNABLE;
         }
     }
     return 0;
@@ -250,7 +226,7 @@ void mythread_setkthreads(int no_of_kthreads){
 
 int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
     static int kthread_no = 1;
-    static int flag = 0;
+   static int flag = 0;
     if(flag==0){
         flag=1;
         signal(SIGALRM,sig_handler);
@@ -263,17 +239,21 @@ int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
              printf("|mmap failed!|\n");
         kthread *k = (kthread *)malloc(sizeof(kthread));
         k->stack = new_stack;
-        add_kthread_to_ll(k);
+        
         int id = clone(scheduler, new_stack+GUARDPSIZE+DEFAULT_STACKSIZE,CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD |CLONE_SYSVSEM|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, NULL);
         if(id == -1){
             printf("|Clone Failed!|\n");
             //adding error flag here 
             exit(1);
         } 
+        add_kthread_to_ll(k);
         printf("Returned after Clone in thread_Create!");
         k->kid = id;
         kthread_no++;
-        //userthread creation
+        //userthread creatiowhile(1){
+    // //    printf("Hello in f:");
+    //     sleep(2);
+    // }n
     }
     printf("User thread created now!\n");
     void *u_stack = mmap(NULL,GUARDPSIZE + DEFAULT_STACKSIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK,-1,0);
@@ -409,7 +389,7 @@ void f(){
     printf("Sankettt\n");
     while(1){
         printf("Hello in f:");
-        sleep(2);
+       sleep(2);
     }
     //printf("%d is :",cd->result);
     return;
@@ -422,18 +402,19 @@ void g(){
     return;
 }
 int main(){
-    printf("Program started in Main:");
+
+    printf("Program started in Main: %d\n",gettid());
     thread_chain.start = NULL;
-    thread_chain.end = NULL;
     thread_chain.count = 0;
     int *ret = (int *)malloc(sizeof(int));
     void** re;
-    mythread_t t,k;
+    mythread_t t,k,m;
     thread_create(&t,NULL, g,NULL);
     printf("\nthread in Main()");
     thread_create(&k,NULL, f,NULL);
-    sleep(25);
-    printf("jjjjjppp");
+    //thread_create(&m,NULL, f,NULL);
+    printf("thread create done\n");
+    sleep(5);
     //thread_join(&t,re);
     /*sleep(2);
     thread_killt,SIGSTOP);
@@ -444,12 +425,9 @@ int main(){
     //thread_kill(&t, SIGKILL);
     printf("i am out\n");
    // sleep(5);
-    // while(1){
+    while(1);
     // printf("i poiu\n");
     // sleep(10);
     // }
-    while(1){
-        sleep(2);
-    }
     return 0;
 }
