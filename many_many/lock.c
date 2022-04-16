@@ -6,12 +6,14 @@
 #include "mythread.h"
 #include "lock.h"
 
-extern node* running_thread;
+extern th_linked_list thread_chain;
+extern enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO,WAITING};
 
 void initlock(struct spinlock *lk)
 {
   lk->locked = 0;
   lk->tid = -1;
+  lk->kid = -1;
 }
 
 void unblockSignal()
@@ -19,6 +21,7 @@ void unblockSignal()
     sigset_t __signalList;
     sigemptyset(&__signalList);
     sigaddset(&__signalList, SIGALRM);
+    sigaddset(&__signalList, SIGUSR1);
     sigprocmask(SIG_UNBLOCK, &__signalList, NULL);
     return;
 }
@@ -28,6 +31,7 @@ void blockSignal()
     sigset_t __signalList;
     sigemptyset(&__signalList);
     sigaddset(&__signalList, SIGALRM);
+    sigaddset(&__signalList, SIGUSR1);
     sigprocmask(SIG_BLOCK, &__signalList, NULL);
     return;
 }
@@ -47,36 +51,46 @@ xchg(volatile uint *addr, uint newval)
 void
 acquire(struct spinlock *lk)
 { 
-  
+
   blockSignal();
-  int a = 0;
-  if(!running_thread) a = 2;
-  else a = running_thread->th->tid;
-  if(lk->locked && lk->tid == a){
+  int ktid = gettid();
+  node *start = thread_chain.start;
+    while(start){
+        if(start->th->kid == ktid && start->fD->status == RUNNING){
+            break;
+        }
+    }
+  if(lk->locked && lk->tid == start->th->tid){
     perror("acquiring gandlay\n");
 
     exit(1);
   }
-  printf("hello\n");
+
   while(xchg(&lk->locked, 1) != 0)
     ;
 
-  lk->tid = a;
+
+    lk->tid = start->th->tid;
 }
 
 
 
 void
 release(struct spinlock *lk)
-{ 
-  int a = 0;
-  if(!running_thread) a = 2;
-  else a = running_thread->th->tid;
-  if(!(lk->locked && lk->tid == a)){
+{   
+    int ktid = gettid();
+    node *start;
+    while(start){
+        if(start->th->kid == ktid && start->fD->status == RUNNING){
+            break;
+        }
+    }
+  if(!(lk->locked && lk->tid == start->th->tid)){
     perror("release gandly\n");
   }
 
   lk->tid = -1;
+  lk->kid = -1;
   asm volatile("movl $0, %0" : "+m" (lk->locked) : );
 
   unblockSignal();

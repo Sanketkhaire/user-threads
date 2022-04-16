@@ -91,6 +91,7 @@ void sig_handler(){
     
     node *curr = running_thread;
     printf("\ninnnnnnnnnn\n");
+
     if(setjmp(curr->th->myContext) == 0)
         longjmp(thread_chain.start->th->myContext,1);
     
@@ -115,11 +116,16 @@ void scheduler(){
     node *current = thread_chain.start->next->next, *temp = NULL;
     release(&lock);
     if((setjmp(thread_chain.start->th->myContext)) == 0){
+        thread_chain.start->next->fD->status = RUNNING;
+        running_thread = thread_chain.start->next;
         unblockSignal();
         ualarm(100,0);
-        thread_chain.start->next->fD->status = RUNNING;
         longjmp(thread_chain.start->next->th->myContext,3);
     }
+
+    running_thread->fD->status = RUNNABLE;
+    running_thread = thread_chain.start;
+    running_thread->fD->status = RUNNING;
 
     acquire(&lock);
     while(current){
@@ -133,14 +139,17 @@ void scheduler(){
             my_signal_handler(temp);
             printf("thread no :%ld\n",temp->th->tid);
             temp->fD->status = RUNNING;
+            release(&lock);
             running_thread = temp;
             unblockSignal();
             ualarm(100,0);
-            release(&lock);
             if(setjmp(thread_chain.start->th->myContext) == 0)
                 longjmp(temp->th->myContext,3);
-            acquire(&lock);
             temp->fD->status = RUNNABLE;
+            running_thread = thread_chain.start;
+            running_thread->fD->status = RUNNING;
+            acquire(&lock);
+            
         }
 
     }
@@ -173,6 +182,7 @@ void init(){
         thread_chain.start->th->myContext->__jmpbuf[7] = mangle((long int)scheduler);
         signal(SIGALRM,sig_handler);
         thread_create(&t2,NULL,NULL,NULL);
+        running_thread = thread_chain.start;
         if((setjmp(thread_chain.start->next->th->myContext)) == 0){
             longjmp(thread_chain.start->th->myContext,3);
             //scheduler();
@@ -233,7 +243,7 @@ int thread_join(mythread_t *t, void **retval){
 }
 
 void thread_exit(void *retval){
-    node *temp = thread_chain.start->next;
+    node *temp = running_thread;
 
     temp->fD->status = TERMINATED;
    
@@ -350,7 +360,7 @@ int main(){
     // }
     sleep(10);
     printf("ouuuuut\n");
-    while(1);
+    // while(1);
     // while(1){
     // printf("i poiu\n");
     // sleep(10);
