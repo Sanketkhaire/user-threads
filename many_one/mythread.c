@@ -19,6 +19,8 @@ th_linked_list thread_chain;
 
 node* running_thread;
 
+spinlock lock;
+
 enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO,WAITING};
 
 
@@ -26,14 +28,6 @@ static int wrapper(){
     int *s = (int*)malloc(sizeof(int));
     //printf("In Wrapper!");
     node *curr = running_thread;
-    // while(curr){
-    //     if(curr->fD->status == RUNNING){
-    //         break;
-    //     }
-            
-    //     curr = curr->next;
-    // }
-
     
     funcDesc *f =(funcDesc *)curr->fD;
     f->fPtr(f->args);
@@ -61,18 +55,22 @@ void add_thread_to_ll(thDesc *t, funcDesc *f){
     newNode->next = NULL;
     newNode->th->tid = thread_chain.count;
     (thread_chain.count)++;
+
+    acquire(&lock);
     if(thread_chain.start && thread_chain.start == thread_chain.end){
         printf("poiu22\n");
         newNode->next = thread_chain.start;
         thread_chain.start = newNode;
         newNode->th->tid = INT_MAX;
+        release(&lock);
         return;
      }
      if(thread_chain.start && thread_chain.start->next == thread_chain.end){
-         printf("poiu\n");
-         newNode->next = thread_chain.end;
-         thread_chain.start->next = newNode;
-         return;
+        printf("poiu\n");
+        newNode->next = thread_chain.end;
+        thread_chain.start->next = newNode;
+        release(&lock);
+        return;
      }
     if(thread_chain.start== NULL){
         thread_chain.start = newNode;
@@ -83,6 +81,7 @@ void add_thread_to_ll(thDesc *t, funcDesc *f){
         printf("last\n");
         thread_chain.end->next = newNode;
     }
+    release(&lock);
     return;
 }
 
@@ -91,15 +90,6 @@ void sig_handler(){
     printf("in handler\n");
     
     node *curr = running_thread;
-    // while(curr){
-    //     if(curr->fD->status == RUNNING){
-    //         printf("in handler %ld\n",curr->th->tid);
-    //         curr->fD->status = RUNNABLE;
-    //         break;
-    //     }
-    //     curr = curr->next;
-    //     if(!curr) curr = thread_chain.start->next;
-    // }
     printf("\ninnnnnnnnnn\n");
     if(setjmp(curr->th->myContext) == 0)
         longjmp(thread_chain.start->th->myContext,1);
@@ -121,7 +111,9 @@ void my_signal_handler(node *curr){
 
 void scheduler(){
     //setSignals();
+    acquire(&lock);
     node *current = thread_chain.start->next->next, *temp = NULL;
+    release(&lock);
     if((setjmp(thread_chain.start->th->myContext)) == 0){
         unblockSignal();
         ualarm(100,0);
@@ -129,6 +121,7 @@ void scheduler(){
         longjmp(thread_chain.start->next->th->myContext,3);
     }
 
+    acquire(&lock);
     while(current){
         temp = current;
         current = current->next;
@@ -143,12 +136,15 @@ void scheduler(){
             running_thread = temp;
             unblockSignal();
             ualarm(100,0);
+            release(&lock);
             if(setjmp(thread_chain.start->th->myContext) == 0)
                 longjmp(temp->th->myContext,3);
+            acquire(&lock);
             temp->fD->status = RUNNABLE;
         }
 
     }
+    release(&lock);
 }
 
 /*Ref:https://stackoverflow.com/questions/69148708/alternative-to-mangling-jmp-buf-in-c-for-a-context-switch*/
@@ -169,6 +165,7 @@ unsigned long int mangle(unsigned long int p) {
 void init(){
     static int flag = 0;
     if(!flag){
+        
         printf("init\n");
         flag = 1;
         mythread_t t1,t2;
@@ -213,6 +210,7 @@ int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
 
 int thread_join(mythread_t *t, void **retval){  
     node *temp = thread_chain.start->next;
+    acquire(&lock);
     while(temp){
         if(temp->th->tid == *t){
             printf("\nkids : %ld\n",temp->th->tid);
@@ -220,6 +218,7 @@ int thread_join(mythread_t *t, void **retval){
         }
         temp = temp->next;
     }
+    release(&lock);
     if(temp){
         printf("\nstatus : %d\n",temp->fD->status);
         while(temp->fD->status != TERMINATED)
@@ -235,14 +234,6 @@ int thread_join(mythread_t *t, void **retval){
 
 void thread_exit(void *retval){
     node *temp = thread_chain.start->next;
-    // while(temp){
-    //     if(temp->fD->status == RUNNING){
-    //         printf("\nexiteddd : %ld\n",temp->th->tid);
-    //         temp->fD->status = TERMINATED;
-    //         break;
-    //     }
-    //     temp=temp->next;
-    // }
 
     temp->fD->status = TERMINATED;
    
@@ -253,6 +244,8 @@ void thread_exit(void *retval){
 int thread_kill(mythread_t *t, int sig){
     node *temp = thread_chain.start->next;
     printf("\nin loopsss\n");
+
+    acquire(&lock);
     while(temp){
         printf("\nin loop\n");
         if(temp->th->tid == *t){
@@ -260,11 +253,22 @@ int thread_kill(mythread_t *t, int sig){
         }
         temp=temp->next;
     }
+    release(&lock);
     printf("in kelll\n");
+
     if(temp){
 
-        printf("signaled\n");
-        if(temp->fD->status != TERMINATED){    
+        if(temp->fD->status == RUNNING){
+            if(sig == SIGKILL || sig == SIGCONT || sig == SIGSTOP || sig == SIGINT){
+                int m = tgkill(temp->th->pid,temp->th->kid,sig);
+                if(m == -1)
+                    printf("Not killed!");
+            }
+            else if(sig == SIGTERM){
+                thread_exit(NULL);
+            }
+        }
+        else if(temp->fD->status != TERMINATED){    
             if(sig == SIGKILL || sig == SIGCONT || sig == SIGSTOP || sig == SIGINT){
                 int m = tgkill(temp->th->pid,temp->th->kid,sig);
                 if(m == -1)
@@ -312,6 +316,7 @@ void g(){
 }
 
 int main(){
+    initlock(&lock);
     thread_chain.start = NULL;
     thread_chain.end = NULL;
     thread_chain.count = 0;
@@ -345,6 +350,7 @@ int main(){
     // }
     sleep(10);
     printf("ouuuuut\n");
+    while(1);
     // while(1){
     // printf("i poiu\n");
     // sleep(10);

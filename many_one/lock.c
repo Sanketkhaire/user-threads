@@ -11,6 +11,7 @@ extern node* running_thread;
 void initlock(struct spinlock *lk)
 {
   lk->locked = 0;
+  lk->tid = -1;
 }
 
 void unblockSignal()
@@ -46,18 +47,18 @@ xchg(volatile uint *addr, uint newval)
 void
 acquire(struct spinlock *lk)
 { 
-
+  
   blockSignal();
   if(lk->locked && lk->tid == running_thread->th->tid){
     perror("acquiring gandlay\n");
 
     exit(1);
   }
-
+  printf("hello\n");
   while(xchg(&lk->locked, 1) != 0)
     ;
 
-    lk->tid = running_thread->th->tid;
+  lk->tid = running_thread->th->tid;
 }
 
 
@@ -69,6 +70,7 @@ release(struct spinlock *lk)
     perror("release gandly\n");
   }
 
+  lk->tid = -1;
   asm volatile("movl $0, %0" : "+m" (lk->locked) : );
 
   unblockSignal();

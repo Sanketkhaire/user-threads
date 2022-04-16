@@ -2,10 +2,12 @@
 #ifndef LOCK_H
 #define LOCK_H
 
-struct spinlock{
+#include "mythread.h"
+
+typedef struct spinlock{
     uint locked;
     mythread_t tid;
-};
+}spinlock;
 
 void blockSignal();
 void unblockSignal();

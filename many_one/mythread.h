@@ -2,12 +2,15 @@
 #ifndef MYTHREAD_H
 #define MYTHREAD_H
 
-
+#include <setjmp.h>
 #define GUARDPSIZE (getpagesize())
 #define DEFAULT_STACKSIZE (4*getpagesize())
 
 
+
 typedef unsigned long mythread_t;
+
+#include "lock.h"
 
 typedef struct funcDesc{
     void (*fPtr)(void *);
