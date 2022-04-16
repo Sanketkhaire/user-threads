@@ -2,10 +2,10 @@
 #ifndef LOCK_H
 #define LOCK_H
 
-struct spinlock{
+typedef struct spinlock{
     uint locked;
     mythread_t tid;
-};
+}spinlock;
 
 void initlock(struct spinlock *lk);
 void acquire(struct spinlock *lk);
