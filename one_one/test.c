@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "mythread.h"
 #include <signal.h>
+#include "lock.h"
 
 
 spinlock sl;

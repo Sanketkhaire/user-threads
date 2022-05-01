@@ -13,14 +13,15 @@
 #include<limits.h>
 #include <setjmp.h>
 #include "mythread.h"
-
+#include "lock.h"
 
 th_linked_list thread_chain;
 kth_linked_list kthread_chain={NULL,NULL,3};
-jmp_buf scheduler_context_global; 
+spinlock sl;
 
 
-enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO,WAITING};
+
+// extern enum threadState state;
 
 sigset_t __signalList;
 
@@ -30,6 +31,8 @@ static int wrapper(){
     printf("In Wrapper!");
     node *curr = thread_chain.start;
     int ktid = gettid();
+
+    acquire(&sl);
     while(curr){
         if(curr->fD->status == RUNNING && curr->th->kid == ktid){
             printf("\n  found  \n");
@@ -37,12 +40,13 @@ static int wrapper(){
         }   
         curr = curr->next;
     }
+    release(&sl);
     printf("In wrapper by gettid:%d\n",ktid);
     if(curr!=NULL){
         printf("\n  scheduled  \n");
         funcDesc *f =(funcDesc *)curr->fD;
         f->fPtr(f->args);
-        curr->fD->status = TERMINATED;
+        thread_exit(NULL);
     }
     // else
     //     printf("HH");
@@ -69,6 +73,7 @@ static int wrapper(){
 }
 
 void traverse(){
+    printf("lll\n");
     node *n = thread_chain.start;
     while(n){
         printf("%ld is tid\n",n->th->tid);
@@ -120,7 +125,7 @@ void sig_handler2(){
         printf("dowiopppp\n");
         if(start->fD->status == RUNNING && start->th->kid==ktid){
             printf("down\n");
-            start->fD->status=RUNNABLE;
+            // start->fD->status = RUNNABLE;
             break;
         }
         start=start->next;
@@ -183,6 +188,7 @@ int scheduler(void *arg){
     }
     node *current = thread_chain.start;
     while(current){
+        acquire(&sl);
         node *temp = current;
         current = current->next;
         if(!current) current = thread_chain.start;
@@ -192,6 +198,7 @@ int scheduler(void *arg){
             printf("Runnable thread Found!on scheduler running on kid:%d",gettid());
             temp->th->kid = ktid;
             start->tid = temp->th->tid;
+            release(&sl);
             temp->fD->status = RUNNING;
             printf("setting ualarm(100,0)\n");
             ualarm(100,0);
@@ -200,7 +207,10 @@ int scheduler(void *arg){
             printf("came here after long jmp to scheduler\n");
             if(temp->fD->status != TERMINATED)
                 temp->fD->status = RUNNABLE;
+            temp->th->kid = 0;
+            acquire(&sl);
         }
+        release(&sl);
     }
     return 0;
 }
@@ -226,9 +236,10 @@ void mythread_setkthreads(int no_of_kthreads){
 
 int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
     static int kthread_no = 1;
-   static int flag = 0;
+    static int flag = 0;
     if(flag==0){
         flag=1;
+        initlock(&sl);
         signal(SIGALRM,sig_handler);
         signal(SIGUSR1,sig_handler2);
     }
@@ -278,9 +289,11 @@ int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
     f->status = RUNNABLE;
     return 0;
 }
-/*
+
 int thread_join(mythread_t *t, void **retval){  
-    node *temp = thread_chain.start->next;
+    node *temp = thread_chain.start;
+    
+    acquire(&sl);
     while(temp){
         if(temp->th->tid == *t){
             printf("\nkids : %ld\n",temp->th->tid);
@@ -288,6 +301,8 @@ int thread_join(mythread_t *t, void **retval){
         }
         temp = temp->next;
     }
+    release(&sl);
+
     if(temp){
         printf("\nstatus : %d\n",temp->fD->status);
         while(temp->fD->status != TERMINATED)
@@ -301,22 +316,31 @@ int thread_join(mythread_t *t, void **retval){
 
 }
 
+
+
 void thread_exit(void *retval){
-    node *temp = thread_chain.start->next;
+    
+    node *temp = thread_chain.start;
+    int ktid = gettid();
+
+    acquire(&sl);
     while(temp){
-        if(temp->fD->status = RUNNING){
+        if(temp->fD->status = RUNNING && temp->th->kid == ktid){
             temp->fD->status = TERMINATED;
             break;
         }
         temp=temp->next;
     }
-   
+    release(&sl);
+    
     return;
 }
 
 
+
 int thread_kill(mythread_t *t, int sig){
-    node *temp = thread_chain.start->next;
+    node *temp = thread_chain.start;
+
     while(temp){
         if(temp->th->tid == *t){
             break;
@@ -325,36 +349,36 @@ int thread_kill(mythread_t *t, int sig){
     }
 
     if(temp){
+
         if(temp->fD->status == RUNNING){
-            if(sig == SIGKILL || sig == SIGTERM){
-                int m = tgkill(pid,*t,sig);
+            if(sig == SIGKILL || sig == SIGCONT || sig == SIGSTOP || sig == SIGINT){
+                int m = tgkill(temp->th->pid,temp->th->kid,sig);
                 if(m == -1)
                     printf("Not killed!");
             }
-
-            else if(sig == SIGSTOP){
-                temp->fD->status = WAITING;
-
+            else if(sig == SIGTERM){
+                thread_exit(NULL);
             }
-            // else if(sig == SIGCONT){
-            //     temp->fD->status = RUNNABLE;
-            // }
         }
-
-        else if(temp->fD->status != TERMINATED){
-            if(sig == SIGKILL || sig == SIGTERM){
-                int m = tgkill(pid,*t,sig);
+        else if(temp->fD->status != TERMINATED){    
+            if(sig == SIGKILL || sig == SIGCONT || sig == SIGSTOP || sig == SIGINT){
+                int m = tgkill(temp->th->pid,temp->th->kid,sig);
                 if(m == -1)
                     printf("Not killed!");
             }
-
-            else if(sig == SIGCONT || sig == SIGSTOP){
-                temp->th->signalArr[sigIndex++] = sig;
+            else if(sig == SIGTERM){
+                acquire(&sl);
+                temp->fD->status = TERMINATED;
+                release(&sl);
+            }
+            else{
+                temp->th->signalArr[temp->th->sigIndex++] = sig;
             }
         }
     }
+}
 
-*/
+/*
 
 //     node *n = thread_chain.start->next;
 //     pid_t pid=getpid();
@@ -381,6 +405,7 @@ int thread_kill(mythread_t *t, int sig){
 //     }
 
 // }
+*/
 
 struct c{
     int a,b,result;
@@ -401,6 +426,7 @@ void g(){
     printf("h-----\n");
     return;
 }
+
 int main(){
 
     printf("Program started in Main: %d\n",gettid());
@@ -408,14 +434,16 @@ int main(){
     thread_chain.count = 0;
     int *ret = (int *)malloc(sizeof(int));
     void** re;
-    mythread_t t,k,m;
+    mythread_t t,k,m,n;
     thread_create(&t,NULL, g,NULL);
     printf("\nthread in Main()");
     thread_create(&k,NULL, f,NULL);
+    thread_create(&m,NULL, f,NULL);
+    thread_create(&n,NULL, f,NULL);
     //thread_create(&m,NULL, f,NULL);
     printf("thread create done\n");
     sleep(5);
-    //thread_join(&t,re);
+    // thread_join(&t,re);
     /*sleep(2);
     thread_killt,SIGSTOP);
     printf("No");

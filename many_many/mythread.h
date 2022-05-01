@@ -1,7 +1,12 @@
+#ifndef MNMYTHREAD_H
+#define MNMYTHREAD_H
+
 #include <time.h>
+#include <setjmp.h>
 #define GUARDPSIZE (getpagesize())
 #define DEFAULT_STACKSIZE (4*getpagesize())
 
+enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO};
 
 typedef unsigned long mythread_t;
 
@@ -60,3 +65,4 @@ int thread_join(mythread_t *t, void **retval);
 void thread_exit(void *retval);
 int thread_kill(mythread_t *T, int sig);
 
+#endif
