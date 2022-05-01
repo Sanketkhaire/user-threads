@@ -3,17 +3,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
-#include "mythread.h"
+#include <limits.h>
 #include "lock.h"
 
 extern th_linked_list thread_chain;
-extern enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO,WAITING};
+// extern enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO};
 
 void initlock(struct spinlock *lk)
 {
   lk->locked = 0;
   lk->tid = -1;
-  lk->kid = -1;
 }
 
 void unblockSignal()
@@ -55,22 +54,29 @@ acquire(struct spinlock *lk)
   blockSignal();
   int ktid = gettid();
   node *start = thread_chain.start;
-    while(start){
-        if(start->th->kid == ktid && start->fD->status == RUNNING){
-            break;
-        }
-    }
-  if(lk->locked && lk->tid == start->th->tid){
-    perror("acquiring gandlay\n");
+  int var;
 
+  while(start){
+      if(start->th->kid == ktid){
+          break;
+      }
+      start = start->next;
+  }
+
+  if(!start) var = INT_MIN;
+  else var = start->th->tid;
+
+  if(lk->locked && lk->tid == var){
+    perror("acquiring gandlay\n");
     exit(1);
   }
 
   while(xchg(&lk->locked, 1) != 0)
     ;
+  
 
-
-    lk->tid = start->th->tid;
+  if(!start) printf("\nkkkk\n");
+  lk->tid = var;
 }
 
 
@@ -78,19 +84,25 @@ acquire(struct spinlock *lk)
 void
 release(struct spinlock *lk)
 {   
-    int ktid = gettid();
-    node *start;
-    while(start){
-        if(start->th->kid == ktid && start->fD->status == RUNNING){
-            break;
-        }
-    }
-  if(!(lk->locked && lk->tid == start->th->tid)){
+  int ktid = gettid();
+  node *start = thread_chain.start;
+  int var;
+
+  while(start){
+      if(start->th->kid == ktid){
+          break;
+      }
+      start = start->next;
+  }
+
+  if(!start) var = INT_MIN;
+  else var = start->th->tid;
+  
+  if(!(lk->locked && lk->tid == var)){
     perror("release gandly\n");
   }
 
   lk->tid = -1;
-  lk->kid = -1;
   asm volatile("movl $0, %0" : "+m" (lk->locked) : );
 
   unblockSignal();

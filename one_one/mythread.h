@@ -1,5 +1,5 @@
 #define GUARDPSIZE (getpagesize())
-#define DEFAULT_STACKSIZE (16*getpagesize())
+#define DEFAULT_STACKSIZE (4*getpagesize())
 #include <setjmp.h>
 
 typedef unsigned long mythread_t;
@@ -27,8 +27,6 @@ typedef struct node{
     struct node *next;
 }node;
 
-
-//actual linked list structure enclosing head and tail pointer.
 typedef struct linked_list{
     node *start;
     int count;

@@ -1,0 +1,6 @@
+#define ERROR "\033[1;31m"
+#define SUCCESS "\033[1;32m"
+#define BYELLOW "\033[1;33m"
+#define BBLUE "\033[1;34m"
+#define WHITE "\033[1;37m"
+#define NONE "\033[0m"

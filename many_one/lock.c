@@ -57,7 +57,6 @@ acquire(struct spinlock *lk)
 
     exit(1);
   }
-  printf("hello\n");
   while(xchg(&lk->locked, 1) != 0)
     ;
 

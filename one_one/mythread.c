@@ -21,7 +21,6 @@ enum threadState{RUNNABLE,TERMINATED,RUNNING,EMBRYO,WAITING};
 
 
 void traverse(){
-    printf("heypoiu\n");
     node *n = thread_chain.start;
     while(n){
         if(!n->th)
@@ -32,30 +31,15 @@ void traverse(){
         n=n->next;
     }
     return;
-    /*
-    for(int i=0;i<thread_chain.count;i++){
-        printf("%ld is tid status is : %d , kid is : %ld\n",n->th->tid, n->fD->status, n->th->kid);
-        n = n->next;
-    }*/
 }
 
 int wrapper(void *arg){
-    // funcDesc *f =(funcDesc *)arg;
     node *n ;
-    // traverse();
-    //printf("\n");
     n = (node*)arg;
 	n->fD->fPtr(n->fD->args);
-	//printf("|Function excuted completely|\n");
-    // f->status = 1;
-    // traverse();
-    // printf("Thread exited!\n");
     thread_exit(NULL);
 	return 0;
 }
-
-
-
 
 void add_thread_to_ll(node* newNode,thDesc *t, funcDesc *f){
     newNode->th = t;
@@ -68,18 +52,20 @@ void add_thread_to_ll(node* newNode,thDesc *t, funcDesc *f){
     newNode->next = thread_chain.start;
     thread_chain.start = newNode;
     release(&test);
-    // traverse();
-    // for(int i =0; i < 10000; i++);
-    // printf("%c" ,'\0');
     return;
 }
 
 int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
-    
+    static int flag = 0;
+    if(!flag){
+        flag = 1;
+        initlock(&test);
+    }
     void *new_stack = mmap(NULL,GUARDPSIZE + DEFAULT_STACKSIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK,-1,0);
     
-    if(new_stack == MAP_FAILED)
+    if(new_stack == MAP_FAILED){
 	    printf("|mmap failed!|\n");
+    }
     thDesc *t = (thDesc *)malloc(sizeof(thDesc));
     funcDesc *f = (funcDesc *)malloc(sizeof(funcDesc));
     node *newNode = (node *)malloc(sizeof(node));
@@ -112,24 +98,18 @@ int thread_join(mythread_t *t, void **retval){
     node *temp = thread_chain.start;
     acquire(&test);
     while(temp){
-        //printf("\nkid : %ld %ld\n",temp->th->kid, *t);
         if(temp->th->kid == *t){
-            //printf("\nkid : %ld\n",temp->th->kid);
             break;
         }
         temp = temp->next;
     }
     release(&test);
     if(temp){
-        //printf("\nstatus : %d\n",temp->fD->status);
-        //exit(1);
         while(temp->fD->status == 0)
             ;
-        //exit(1);
         return 0;
     }
     else{
-        //printf("not found!");
         return -1;
     }
 
@@ -137,20 +117,13 @@ int thread_join(mythread_t *t, void **retval){
 
 void thread_exit(void *retval){
     mythread_t tid = (unsigned long)gettid();
-    // int *a = (int*)retval;
-    // *a = 1;
-    // sleep(1);
-    //printf("In  exit");
-    //kill(SIGINT,tid);
     node* temp = thread_chain.start;
     
     acquire(&test);
-    // traverse();
     while(temp && temp->th->kid != tid){
         temp = temp->next;
     }
     release(&test);
-    // exit(1);
     temp->fD->status = TERMINATED;
     syscall(SYS_exit,EXIT_SUCCESS);
     return;
@@ -181,7 +154,7 @@ int thread_kill(mythread_t *t, int sig){
 
     }
     else if(sig == SIGCONT){
-         int m= tgkill(pid,*t,sig);
+        int m= tgkill(pid,*t,sig);
         if(m==-1)
             printf("Not Continued!");
 
@@ -199,65 +172,3 @@ void thread_unlock(struct spinlock* sl){
     release(sl);
     return;
 }
-
-
-struct spinlock sl;
-struct c{
-    int a,b,result;
-};
-void f(){
-    //struct c *cd = (struct c*)m;
-    //cd->result = cd->a + cd->b;
-    /*
-    while(1){
-        printf("hello\n");
-        sleep(1);
-    }
-    */
-    //sleep(5);
-    thread_lock(&sl);
-    printf("5 secs completed!\n");
-    thread_unlock(&sl);
-    //printf("hello");
-    //sleep(3);
-    //printf("after 5\n");
-    //printf("%d is :",cd->result);
-    return;
-}
-
-void g(){
-    // printf("5 secs completed!\n");
-    //sleep(2);
-    thread_lock(&sl);
-    printf("h-----\n");
-    thread_unlock(&sl);
-
-    return;
-}
-/*
-int main(){
-    initlock(&test);
-    initlock(&sl);
-    thread_chain.start = NULL;
-    // thread_chain.end = NULL;
-    thread_chain.count = 0;
-    int *ret = (int *)malloc(sizeof(int));
-    // void** re;
-    mythread_t t,k,o,l;
-    thread_create(&t,NULL, f,NULL);
-    thread_create(&k,NULL, g,NULL);
-    thread_create(&o,NULL, f,NULL);
-    thread_create(&l,NULL, g,NULL);
-    printf("jjjjj");
-    //thread_join(&t,re);
-    sleep(2);
-    thread_kill(&t,SIGSTOP);
-    printf("No");
-    thread_kill(&t,SIGCONT);
-    sleep(4);
-    printf("\n%d is ",sanket.result);
-    //thread_kill(&t, SIGKILL);
-    sleep(7);
-
-    return 0;
-}*/
