@@ -43,7 +43,7 @@ int wrapper(void *arg){
     // funcDesc *f =(funcDesc *)arg;
     node *n ;
     // traverse();
-    printf("\n");
+    //printf("\n");
     n = (node*)arg;
 	n->fD->fPtr(n->fD->args);
 	//printf("|Function excuted completely|\n");
@@ -114,14 +114,14 @@ int thread_join(mythread_t *t, void **retval){
     while(temp){
         //printf("\nkid : %ld %ld\n",temp->th->kid, *t);
         if(temp->th->kid == *t){
-            printf("\nkid : %ld\n",temp->th->kid);
+            //printf("\nkid : %ld\n",temp->th->kid);
             break;
         }
         temp = temp->next;
     }
     release(&test);
     if(temp){
-        printf("\nstatus : %d\n",temp->fD->status);
+        //printf("\nstatus : %d\n",temp->fD->status);
         //exit(1);
         while(temp->fD->status == 0)
             ;
@@ -129,7 +129,7 @@ int thread_join(mythread_t *t, void **retval){
         return 0;
     }
     else{
-        printf("not found!");
+        //printf("not found!");
         return -1;
     }
 
@@ -140,7 +140,7 @@ void thread_exit(void *retval){
     // int *a = (int*)retval;
     // *a = 1;
     // sleep(1);
-    printf("In  exit");
+    //printf("In  exit");
     //kill(SIGINT,tid);
     node* temp = thread_chain.start;
     
@@ -234,6 +234,7 @@ void g(){
 
     return;
 }
+/*
 int main(){
     initlock(&test);
     initlock(&sl);
@@ -249,14 +250,14 @@ int main(){
     thread_create(&l,NULL, g,NULL);
     printf("jjjjj");
     //thread_join(&t,re);
-    /*sleep(2);
+    sleep(2);
     thread_kill(&t,SIGSTOP);
     printf("No");
     thread_kill(&t,SIGCONT);
     sleep(4);
-    printf("\n%d is ",sanket.result);*/
+    printf("\n%d is ",sanket.result);
     //thread_kill(&t, SIGKILL);
     sleep(7);
 
     return 0;
-}
+}*/

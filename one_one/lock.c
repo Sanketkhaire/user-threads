@@ -7,9 +7,10 @@
 
 
 
-void initlock(struct spinlock *lk)
+void initlock(spinlock *lk)
 {
   lk->locked = 0;
+  lk->tid = -1;
 }
 
 static inline uint
@@ -25,7 +26,7 @@ xchg(volatile uint *addr, uint newval)
 }
 
 void
-acquire(struct spinlock *lk)
+acquire(spinlock *lk)
 {
   if(lk->locked && lk->tid == gettid()){
     perror("acquiring gandlay\n");
@@ -42,12 +43,13 @@ acquire(struct spinlock *lk)
 
 
 void
-release(struct spinlock *lk)
+release(spinlock *lk)
 {
   if(!(lk->locked && lk->tid == gettid())){
     perror("release gandly\n");
   }
 
+  lk->tid = -1;
   asm volatile("movl $0, %0" : "+m" (lk->locked) : );
 
 }

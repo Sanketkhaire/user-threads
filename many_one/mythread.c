@@ -341,7 +341,7 @@ void g(){
     printf("h-----\n");
     return;
 }
-
+/*
 int main(){
     initlock(&lock);
     thread_chain.start = NULL;
@@ -369,12 +369,12 @@ int main(){
     // sleep(10);
     // // exit(1);
     // thread_kill(&t,SIGCONT);    
-    /*sleep(2);
+    sleep(2);
     thread_kill(&t,SIGSTOP);
     printf("No");
     thread_kill(&t,SIGCONT);
     sleep(4);
-    printf("\n%d is ",sanket.result);*/
+    printf("\n%d is ",sanket.result);
     //thread_kill(&t, SIGKILL);
     printf("i am out\n");
     // while(1)
@@ -392,4 +392,4 @@ int main(){
     // sleep(10);
     // }
     return 0;
-}
+}*/
