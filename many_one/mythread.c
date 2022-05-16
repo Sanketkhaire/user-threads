@@ -34,23 +34,14 @@ static int wrapper(){
     acquire(&lock);
     thread_exit(NULL);
     release(&lock);
-<<<<<<< HEAD
     //printf("tidd : %d\n",running_thread->fD->status);
     //printf("hellor\n");
-=======
-    printf("tidd : %d\n",running_thread->fD->status);
-    printf("hellor\n");
->>>>>>> 10eadf18a240a665212c5df39a04824221ac64a4
     longjmp(thread_chain.start->th->myContext,1);
 	return 0;
 }
 
 void traverse(){
-<<<<<<< HEAD
     //printf("jjj\n");
-=======
-    printf("jjj\n");
->>>>>>> 10eadf18a240a665212c5df39a04824221ac64a4
     node *n = thread_chain.start;
     while(n){
         printf("%ld is tid status : %d count : %d\n",n->th->tid,n->fD->status,thread_chain.count);
@@ -70,12 +61,7 @@ void add_thread_to_ll(thDesc *t, funcDesc *f){
     newNode->th->tid = thread_chain.count;
     acquire(&lock);
     (thread_chain.count)++;
-<<<<<<< HEAD
     //printf("numberr : %d\n",thread_chain.count);
-=======
-    traverse();
-    printf("numberr : %d\n",thread_chain.count);
->>>>>>> 10eadf18a240a665212c5df39a04824221ac64a4
     if(thread_chain.start && thread_chain.start == thread_chain.end){
         // printf("poiu22\n");
         newNode->next = thread_chain.start;
@@ -151,21 +137,13 @@ void scheduler(){
     while(current){
         temp = current;
         current = current->next;
-<<<<<<< HEAD
         //printf("thread no issssss:%ld\n",temp->th->tid);
-=======
-        printf("thread no issssss:%ld\n",temp->th->tid);
->>>>>>> 10eadf18a240a665212c5df39a04824221ac64a4
         if(!current) current = thread_chain.start->next;
         // traverse();
         
         if(temp->fD->status == RUNNABLE){
             my_signal_handler(temp);
-<<<<<<< HEAD
             //printf("thread no :%ld\n",temp->th->tid);
-=======
-            printf("thread no :%ld\n",temp->th->tid);
->>>>>>> 10eadf18a240a665212c5df39a04824221ac64a4
             release(&lock);
             thread_chain.start->fD->status = RUNNABLE;
             temp->fD->status = RUNNING;
@@ -173,11 +151,7 @@ void scheduler(){
             unblockSignal();
             ualarm(200,0);
             if(setjmp(thread_chain.start->th->myContext) == 0){
-<<<<<<< HEAD
                 //printf("hellll\n");
-=======
-                printf("hellll\n");
->>>>>>> 10eadf18a240a665212c5df39a04824221ac64a4
                 longjmp(temp->th->myContext,3);
             }
             if(temp->fD->status != TERMINATED)
@@ -235,11 +209,7 @@ int thread_create(mythread_t *tt,void *attr, void *func_ptr, void *arg){
         perror("okkk\n");
     }
 
-<<<<<<< HEAD
     //printf("building thread\n");
-=======
-    printf("building thread\n");
->>>>>>> 10eadf18a240a665212c5df39a04824221ac64a4
     thDesc *t = (thDesc *)malloc(sizeof(thDesc));
     funcDesc *f = (funcDesc *)malloc(sizeof(funcDesc));
     f->fPtr = func_ptr;
