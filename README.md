@@ -1,7 +1,7 @@
-<h1 align="center">{{Name}}</h1> 
+<h1 align="center">user-threads</h1> 
 <br/>
 <div align="center">
-  <h1><strong>Multithreading library</strong></h1>
+  <h2><strong>A Multithreading library</strong></h2>
 </div>
 
 ## Table of Contents
